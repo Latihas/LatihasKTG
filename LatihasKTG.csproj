@@ -7,7 +7,4 @@
 		<Description>LatihasKTG</Description>
 		<Punchline>魔光键影助手</Punchline>
 	</PropertyGroup>
-	<ItemGroup>
-	  <Content Include=".github\workflows\pr-build.yml" />
-	</ItemGroup>
 </Project>

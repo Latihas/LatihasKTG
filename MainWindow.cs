@@ -65,9 +65,9 @@ internal sealed class MainWindow() : Window("LatihasKTG") {
 		if (ExchangeStatus.Length > 0) ImGui.TextWrapped(ExchangeStatus);
 
 		ImGui.SetNextItemWidth(160f);
-		ImGui.InputInt("操作延迟（ms，填入 → 提交）", ref operationDelayMs);
+		ImGui.InputInt("操作延迟（ms，填入 → 提交）(0)", ref operationDelayMs);
 		ImGui.SetNextItemWidth(160f);
-		ImGui.InputInt("答题间隔（ms）", ref intervalMs);
+		ImGui.InputInt("答题间隔（ms）(0)", ref intervalMs);
 		if (ImGui.Button("保存延迟")) {
 			ClampDelayInputs();
 			SetOptions(Options with {
@@ -86,7 +86,7 @@ internal sealed class MainWindow() : Window("LatihasKTG") {
 		}
 		var stable = Options.StableMs;
 		var maxAttempts = Options.MaxAttemptsPerWord;
-		if (ImGui.InputInt("词条稳定时间（毫秒）", ref stable)) {
+		if (ImGui.InputInt("词条稳定时间（毫秒）(0)", ref stable)) {
 			SetOptions(Options with {
 				StableMs = stable
 			});

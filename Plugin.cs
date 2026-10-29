@@ -24,7 +24,7 @@ public sealed class Plugin : IDalamudPlugin {
 	internal sealed record WordTarget(string Key, string Text);
 
 	internal sealed record AnswerOptions(int StableMs = 150, int FillDelayMs = 750, int IntervalMs = 750, int MaxAttemptsPerWord = 5) {
-		public AnswerOptions Clamp() => new(Math.Clamp(StableMs, 50, 2000), Math.Clamp(FillDelayMs, 0, 60000), Math.Clamp(IntervalMs, 0, 60000), Math.Clamp(MaxAttemptsPerWord, 1, 100));
+		public AnswerOptions Clamp() => new(Math.Clamp(StableMs, 0, 2000), Math.Clamp(FillDelayMs, 0, 60000), Math.Clamp(IntervalMs, 0, 60000), Math.Clamp(MaxAttemptsPerWord, 1, 100));
 	}
 
 	[PluginService] internal static ISigScanner SigScanner { get; private set; } = null!;
@@ -44,7 +44,6 @@ public sealed class Plugin : IDalamudPlugin {
 	private readonly MainWindow mainWindow;
 	private readonly ChestExchangeAutomation chestExchange;
 	private static readonly ConcurrentQueue<Action> requests = new();
-	private static long nextTick;
 	internal static bool PreviewReady;
 	internal static string PreviewReason = "尚未读取游戏 UI";
 	internal static string PreviewInput = "";
@@ -228,14 +227,11 @@ public sealed class Plugin : IDalamudPlugin {
 		try {
 			while (requests.TryDequeue(out var action)) action();
 			var now = Environment.TickCount64;
-			if (now >= nextTick) {
-				nextTick = now + 50;
-				controller.Tick(now);
-				PreviewReady = GameUiPort.Read(out _, out var input, out var targets, out var reason, out _);
-				PreviewInput = input;
-				PreviewTargets = targets;
-				PreviewReason = reason;
-			}
+			controller.Tick(now);
+			PreviewReady = GameUiPort.Read(out _, out var input, out var targets, out var reason, out _);
+			PreviewInput = input;
+			PreviewTargets = targets;
+			PreviewReason = reason;
 		} catch (Exception ex) {
 			controller.Stop("读取或输入异常，已停止；详情见 /xllog");
 			log.Error(ex, "FFMoGuang update failed");

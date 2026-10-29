@@ -13,6 +13,7 @@ internal sealed class AnswerController {
 		AwaitingClear,
 		Cooldown
 	}
+
 	private Phase phase;
 	private string session = "";
 	private WordTarget? pending;
@@ -23,6 +24,7 @@ internal sealed class AnswerController {
 	internal string Status { get; private set; } = "已停止";
 	internal string LastWord { get; private set; } = "";
 	internal int Submissions { get; private set; }
+
 	internal bool Start(long now, AnswerOptions settings) {
 		if (Running) {
 			return true;
@@ -146,7 +148,7 @@ internal sealed class AnswerController {
 
 	internal static bool IsValid(WordTarget target) {
 		return !string.IsNullOrWhiteSpace(target.Text)
-			&& Encoding.UTF8.GetByteCount(target.Text) <= 512
-			&& target.Text.All(c => !char.IsControl(c));
+		       && Encoding.UTF8.GetByteCount(target.Text) <= 512
+		       && target.Text.All(c => !char.IsControl(c));
 	}
 }

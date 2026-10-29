@@ -2,12 +2,15 @@ using System;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.ClientState.Objects.Enums;
+using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Windowing;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using static LatihasKTG.Plugin;
 
 namespace LatihasKTG;
 
-internal sealed class MainWindow() : Window("LatihasMomo") {
+internal sealed class MainWindow() : Window("LatihasKTG") {
 	private bool delaysInitialized;
 	private int operationDelayMs;
 	private int intervalMs;
@@ -23,7 +26,7 @@ internal sealed class MainWindow() : Window("LatihasMomo") {
 			intervalMs = Options.IntervalMs;
 			delaysInitialized = true;
 		}
-		ImGui.TextUnformatted(Status);
+		ImGui.TextUnformatted(Plugin.Status);
 		ImGui.BeginDisabled(Running);
 		if (ImGui.Button("开始", new Vector2(100f, 0f))) {
 			TryStart();
@@ -38,22 +41,28 @@ internal sealed class MainWindow() : Window("LatihasMomo") {
 		if (ImGui.Checkbox("禁用LeaveDuty", ref disableLeaveDuty)) {
 			if (disableLeaveDuty) Instance.ExecuteCommandHook.Enable();
 			else Instance.ExecuteCommandHook.Disable();
+			SaveConfiguration();
 		}
 		ImGui.SameLine();
 		if (ImGui.Button("强制LeaveDuty")) {
-			if (LastLeaveDutyParam != null) {
-				var p = LastLeaveDutyParam.Value;
-				Instance.ExecuteCommandHook.Original(819, p.Item1, p.Item2, p.Item3, p.Item4);
-			}
-			LastLeaveDutyParam = null;
+			Instance.ExecuteCommandHook.Original(819, 0, 0, 0, 0);
 		}
-		ImGui.Checkbox("全自动(需要先到柜台前)", ref infiniteMode);
+		if (ImGui.Checkbox("全自动(需要先到柜台前)", ref infiniteMode)) {
+			if (!infiniteMode) autoPurchase = false;
+			SaveConfiguration();
+		}
 		ImGui.SameLine();
-		if (ImGui.Button("立刻排本")&&clientState.TerritoryType==1360) {
+		if (ImGui.Button("立刻排本") && clientState.TerritoryType == 1360) {
 			disableLeaveDuty = true;
 			Instance.ExecuteCommandHook.Enable();
-			RequestRace();
+			SaveConfiguration();
+			BeginLobbyCycle();
 		}
+		if (infiniteMode && ImGui.Checkbox("自动购买", ref autoPurchase)) {
+			SaveConfiguration();
+			if (autoPurchase && clientState.TerritoryType == 1360) BeginLobbyCycle();
+		}
+		if (ExchangeStatus.Length > 0) ImGui.TextWrapped(ExchangeStatus);
 
 		ImGui.SetNextItemWidth(160f);
 		ImGui.InputInt("操作延迟（ms，填入 → 提交）", ref operationDelayMs);

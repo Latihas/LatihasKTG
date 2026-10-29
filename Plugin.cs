@@ -23,8 +23,8 @@ public sealed class Plugin : IDalamudPlugin {
 
 	internal sealed record WordTarget(string Key, string Text);
 
-	internal sealed record AnswerOptions(int StableMs = 150, int FillDelayMs = 750, int IntervalMs = 750, int MaxAttemptsPerWord = 5) {
-		public AnswerOptions Clamp() => new(Math.Clamp(StableMs, 0, 2000), Math.Clamp(FillDelayMs, 0, 60000), Math.Clamp(IntervalMs, 0, 60000), Math.Clamp(MaxAttemptsPerWord, 1, 100));
+	internal sealed record AnswerOptions(int StableMs = 150, int IntervalMs = 750) {
+		public AnswerOptions Clamp() => new(Math.Clamp(StableMs, 0, 2000), Math.Clamp(IntervalMs, 0, 60000));
 	}
 
 	[PluginService] internal static ISigScanner SigScanner { get; private set; } = null!;
@@ -60,9 +60,7 @@ public sealed class Plugin : IDalamudPlugin {
 		Configuration = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 		Options = new AnswerOptions(
 			Configuration.StableMs,
-			Configuration.FillDelayMs,
-			Configuration.IntervalMs,
-			Configuration.MaxAttemptsPerWord).Clamp();
+			Configuration.IntervalMs).Clamp();
 		disableLeaveDuty = Configuration.DisableLeaveDuty;
 		infiniteMode = Configuration.InfiniteMode;
 		autoPurchase = Configuration.AutoPurchase;
@@ -120,9 +118,7 @@ public sealed class Plugin : IDalamudPlugin {
 	internal static void SaveConfiguration() {
 		if (Configuration is null) return;
 		Configuration.StableMs = Options.StableMs;
-		Configuration.FillDelayMs = Options.FillDelayMs;
 		Configuration.IntervalMs = Options.IntervalMs;
-		Configuration.MaxAttemptsPerWord = Options.MaxAttemptsPerWord;
 		Configuration.DisableLeaveDuty = disableLeaveDuty;
 		Configuration.InfiniteMode = infiniteMode;
 		Configuration.AutoPurchase = autoPurchase;
@@ -190,13 +186,12 @@ public sealed class Plugin : IDalamudPlugin {
 		return ExecuteCommandHook.Original(command, param1, param2, param3, param4);
 	}
 
-	internal static void Start(int? operationDelayMs = null, int? intervalMs = null) {
+	internal static void Start(int? intervalMs = null) {
 		requests.Enqueue(() => {
 			if (!controller.Running) {
-				if (operationDelayMs.HasValue || intervalMs.HasValue) {
+				if (intervalMs.HasValue) {
 					Options = (Options with {
-						FillDelayMs = operationDelayMs ?? Options.FillDelayMs,
-						IntervalMs = intervalMs ?? Options.IntervalMs
+						IntervalMs = intervalMs.Value
 					}).Clamp();
 					SaveConfiguration();
 				}

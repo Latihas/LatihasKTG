@@ -69,15 +69,16 @@ internal sealed class AnswerController {
 			return;
 		}
 		var live = frameTargets.ToHashSet();
-		var array = attempts.Keys.Where(t => !live.Contains(t)).ToArray();
-		foreach (var target in array) attempts.Remove(target);
-		if (phase == Phase.AwaitingClear) {
-			if (inputText.Length == 0) {
-				phase = Phase.Cooldown;
-				since = now;
-				Status = "提交回调已处理，等待下一次输入";
-			}
+		if (options.IntervalMs == 0) {
+			TickSingleWithoutInterval(now, live);
 			return;
+		}
+		for (var actions = 0; actions < 64; actions++) {
+		if (phase == Phase.AwaitingClear) {
+			if (inputText.Length != 0) return;
+			phase = Phase.Cooldown;
+			since = now;
+			Status = "提交回调已处理，等待下一次输入";
 		}
 		if (phase == Phase.Filled) {
 			if (pending == null) {
@@ -91,7 +92,7 @@ internal sealed class AnswerController {
 				Status = "目标已消失，重新选择";
 				return;
 			}
-			if (now - since >= options.FillDelayMs) {
+			if (now - since >= 0) {
 				if (!GameUiPort.Submit(session, pending, out var submitError, out var submitRetryable)) {
 					if (submitRetryable) {
 						Status = "等待输入控件恢复：" + submitError;
@@ -107,6 +108,11 @@ internal sealed class AnswerController {
 				since = now;
 				Status = "已调用提交，等待输入清空";
 			}
+			if (phase == Phase.AwaitingClear) {
+				if (!GameUiPort.Read(out _, out inputText, out frameTargets, out _, out _)) return;
+				live = frameTargets.ToHashSet();
+				continue;
+			}
 			return;
 		}
 		if (phase == Phase.Cooldown) {
@@ -117,16 +123,11 @@ internal sealed class AnswerController {
 			pending = null;
 		}
 		var next = (from t in live
-			where attempts.GetValueOrDefault(t) < options.MaxAttemptsPerWord
 			orderby attempts.GetValueOrDefault(t), t.Text.EnumerateRunes().Count()
 			select t).ThenBy(t => t.Key, StringComparer.Ordinal).FirstOrDefault();
 		if (next == null) {
 			pending = null;
-			if (live.Count > 0) {
-				Stop("可见目标均达到连续提交上限，请检查词条或调整上限");
-			} else {
-				Status = "等待可见目标";
-			}
+			Status = "等待可见目标";
 		} else if (next != pending) {
 			pending = next;
 			since = now;
@@ -144,6 +145,46 @@ internal sealed class AnswerController {
 			since = now;
 			Status = "已填入：" + next.Text;
 		}
+		if (options.IntervalMs > 0 || phase != Phase.Choosing) return;
+		}
+	}
+
+	private void TickSingleWithoutInterval(long now, HashSet<WordTarget> live) {
+		var target = live
+			.OrderBy(t => attempts.GetValueOrDefault(t))
+			.ThenBy(t => t.Text.EnumerateRunes().Count())
+			.ThenBy(t => t.Key, StringComparer.Ordinal)
+			.FirstOrDefault();
+		if (target == null) {
+			pending = null;
+			Status = "等待新的可见目标";
+			return;
+		}
+		if (!GameUiPort.Fill(target, out var fillError, out var fillRetryable)) {
+			if (fillRetryable) {
+				Status = "等待输入控件恢复：" + fillError;
+				return;
+			}
+			Stop(fillError);
+			return;
+		}
+		if (!GameUiPort.Submit(session, target, out var submitError, out var submitRetryable)) {
+			if (submitRetryable) {
+				Status = "等待输入控件恢复：" + submitError;
+				return;
+			}
+			Stop(submitError);
+			return;
+		}
+		attempts[target] = attempts.GetValueOrDefault(target) + 1;
+		Submissions++;
+		LastWord = target.Text;
+		pending = null;
+		phase = Phase.Choosing;
+		since = now;
+		GameUiPort.ClearOwnedInput(session, target.Text);
+		pending = null;
+		Status = "已提交：" + target.Text;
 	}
 
 	internal static bool IsValid(WordTarget target) {
